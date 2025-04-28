@@ -152,7 +152,7 @@ The system supports multiple MFA methods for terminal sessions:
 
 TOTP (Time-based One-Time Password) authentication can be completed entirely within the terminal:
 
-![TOTP Authentication Flow](images/totp_auth_flow.png)
+![TOTP Authentication Flow](images/mfa_flow_totp.png)
 
 *Figure 2: TOTP authentication flow allowing verification directly within the terminal*
 
@@ -160,7 +160,7 @@ TOTP (Time-based One-Time Password) authentication can be completed entirely wit
 
 For hardware security keys and biometrics, a browser-based flow is used:
 
-![WebAuthn Authentication Flow](images/webauthn_auth_flow.png)
+![WebAuthn Authentication Flow](images/mfa_flow_webauthn.png)
 
 *Figure 3: WebAuthn/FIDO2 authentication flow enabling hardware security key usage*
 
@@ -177,7 +177,7 @@ A standout security feature of CSIP Authentication is mandatory MFA for each sud
 
 This approach significantly raises the security bar for privileged access:
 
-![Sudo Authentication Flow](images/sudo_auth_flow.png)
+![Sudo Authentication Flow](images/sudo_authentication_flow.png)
 
 *Figure 4: Sudo command authentication flow showing MFA verification requirement*
 
