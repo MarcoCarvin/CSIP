@@ -255,4 +255,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+### Interactive API Documentation
+
+For detailed API specifications and interactive testing, see our [API Documentation](https://marcocarvin.github.io/CSIP/api/).
+
+---
+
 ⚠️ **Security Notice**: This is authentication code. Please review thoroughly before deploying in any environment. The creators are not responsible for security vulnerabilities that may arise from improper deployment or configuration.
