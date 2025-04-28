@@ -19,7 +19,7 @@ The CSIP Authentication System handles three distinct user conditions during the
 
 This applies to users directly managed in Keycloak, either imported via user federation (LDAP) or manually created.
 
-![Local Keycloak user authentication flow](images/auth_flow_local_keycloak.png)
+![Local Keycloak user authentication flow](../../images/auth_flow_local_keycloak.png)
 
 *Figure 1: Authentication flow for users that exist locally in Keycloak*
 
@@ -36,7 +36,7 @@ This applies to users directly managed in Keycloak, either imported via user fed
 
 This applies to users managed by an external identity provider that Keycloak is integrated with.
 
-![External IdP user authentication flow](images/auth_flow_external_idp.png)
+![External IdP user authentication flow](../../images/auth_flow_external_idp.png)
 
 *Figure 2: Authentication flow for users that exist in an external IdP integrated with Keycloak*
 
@@ -54,7 +54,7 @@ This applies to users managed by an external identity provider that Keycloak is 
 
 This applies to users who don't exist in Keycloak or any connected IdP, requiring heuristic validation.
 
-![New user authentication flow](images/auth_flow_new_user.png)
+![New user authentication flow](../../images/auth_flow_new_user.png)
 
 *Figure 3: Authentication flow for new users not yet present in Keycloak*
 
@@ -81,7 +81,7 @@ The CSIP Authentication System supports multiple MFA methods, each with its own 
 
 Time-based One-Time Password (TOTP) authentication can be completed entirely within the terminal:
 
-![TOTP authentication flow](images/mfa_flow_totp.png)
+![TOTP authentication flow](../../images/mfa_flow_totp.png)
 
 *Figure 4: TOTP authentication flow*
 
@@ -96,7 +96,7 @@ Time-based One-Time Password (TOTP) authentication can be completed entirely wit
 
 For hardware security keys, fingerprint readers, and other WebAuthn/FIDO2 authenticators:
 
-![WebAuthn authentication flow](images/mfa_flow_webauthn.png)
+![WebAuthn authentication flow](../../images/mfa_flow_webauthn.png)
 
 *Figure 5: WebAuthn/FIDO2 authentication flow*
 
@@ -116,7 +116,7 @@ For hardware security keys, fingerprint readers, and other WebAuthn/FIDO2 authen
 
 For new users who don't yet have an account in any connected IdP:
 
-![New user registration flow](images/registration_flow.png)
+![New user registration flow](../../images/registration_flow.png)
 
 *Figure 6: New user registration flow*
 
@@ -139,7 +139,7 @@ Sudo command authentication follows the same principles as the login flow, adapt
 
 The sudo authentication flow mirrors the login flow but is specifically triggered for privileged command execution. The flow branches based on the user account type and configured MFA method (TOTP or WebAuthn).
 
-![Sudo authentication flow](images/sudo_authentication_flow.png)
+![Sudo authentication flow](../../images/sudo_authentication_flow.png)
 
 *Figure 7: Sudo command authentication flow with branching based on MFA method*
 
