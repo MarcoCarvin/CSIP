@@ -39,7 +39,7 @@ CSIP Authentication uses a proxy-based architecture that provides critical advan
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  Linux      │     │ PAM/NSS     │     │ Auth Proxy  │     │  Keycloak   │
 │  Systems    │────>│ Modules     │────>│ Service     │────>│  Server     │
-└─────────────┘     └─────────────┘     └──────┬──────┘     └──────┬──────┘
+└─────────────┘     └─────────────┘     └──────┬──────┘     └────┬────────┘
      Many               Local              Centralized           │
                                                │                 │
                                         ┌──────┘                 │
@@ -56,6 +56,10 @@ CSIP Authentication uses a proxy-based architecture that provides critical advan
                                                      │ Directory│ │ IdPs     │
                                                      └──────────┘ └──────────┘
 ```
+
+
+
+*Figure 1: Centralized proxy architecture showing integration between Linux systems, proxy service, Keycloak, and external identity providers*
 
 ## SIEM Integration
 
@@ -148,72 +152,17 @@ The system supports multiple MFA methods for terminal sessions:
 
 TOTP (Time-based One-Time Password) authentication can be completed entirely within the terminal:
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Terminal   │     │  PAM Module │     │  Backend    │
-└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-       │                   │                   │
-       │ SSH login attempt │                   │
-       │─────────────────>│                   │
-       │                   │                   │
-       │                   │ Verify credentials│
-       │                   │─────────────────>│
-       │                   │                   │
-       │                   │ Request TOTP code │
-       │                   │<─────────────────│
-       │                   │                   │
-       │ Prompt for TOTP   │                   │
-       │<─────────────────│                   │
-       │                   │                   │
-       │ User enters TOTP  │                   │
-       │─────────────────>│                   │
-       │                   │                   │
-       │                   │ Verify TOTP code  │
-       │                   │─────────────────>│
-       │                   │                   │
-       │                   │ Auth successful   │
-       │                   │<─────────────────│
-       │                   │                   │
-       │ Login successful  │                   │
-       │<─────────────────│                   │
-       │                   │                   │
-```
+![TOTP Authentication Flow](images/totp_auth_flow.png)
+
+*Figure 2: TOTP authentication flow allowing verification directly within the terminal*
 
 #### 2. WebAuthn/FIDO2 Browser-Based Authentication
 
 For hardware security keys and biometrics, a browser-based flow is used:
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Terminal   │     │  PAM Module │     │  Backend    │
-└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-       │                   │                   │
-       │ SSH login attempt │                   │
-       │─────────────────>│                   │
-       │                   │                   │
-       │                   │ Verify credentials│
-       │                   │─────────────────>│
-       │                   │                   │
-       │                   │  Create auth URL  │
-       │                   │<─────────────────│
-       │                   │                   │
-       │ Display auth URL  │                   │
-       │<─────────────────│                   │
-       │                   │                   │
-       │ [User opens URL in browser]           │
-       │                   │                   │
-       │ [MFA completed in browser]            │
-       │                   │                   │
-       │                   │ Poll auth status  │
-       │                   │─────────────────>│
-       │                   │                   │
-       │                   │ Auth successful   │
-       │                   │<─────────────────│
-       │                   │                   │
-       │ Login successful  │                   │
-       │<─────────────────│                   │
-       │                   │                   │
-```
+![WebAuthn Authentication Flow](images/webauthn_auth_flow.png)
+
+*Figure 3: WebAuthn/FIDO2 authentication flow enabling hardware security key usage*
 
 These approaches allow secure multi-factor authentication without requiring modifications to SSH clients, while supporting both browserless (TOTP) and browser-based (WebAuthn) authentication methods.
 
@@ -228,19 +177,9 @@ A standout security feature of CSIP Authentication is mandatory MFA for each sud
 
 This approach significantly raises the security bar for privileged access:
 
-```
-User: sudo apt update
-System: MFA required for sudo. Open https://auth.example.com/verify/abc123 to authenticate
-[User opens URL and completes verification with security key]
-System: Authentication successful
-[Command executes]
+![Sudo Authentication Flow](images/sudo_auth_flow.png)
 
-User: sudo rm -rf /important/directory
-System: MFA required for sudo. Open https://auth.example.com/verify/xyz456 to authenticate
-[User opens URL and completes verification with security key]
-System: Authentication successful
-[Command executes]
-```
+*Figure 4: Sudo command authentication flow showing MFA verification requirement*
 
 By requiring MFA for each privileged command, the system provides strong protection against:
 - Unattended terminal exploitation
