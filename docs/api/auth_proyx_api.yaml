@@ -1,0 +1,1492 @@
+openapi: 3.0.0
+info:
+  title: Authentication Service API
+  description: |
+    API for authentication services including Time-based One-Time Password (TOTP), 
+    WebAuthn, and Identity Provider (IdP) integrations.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+servers:
+  - url: /
+    description: Default API server
+tags:
+  - name: Authentication
+    description: User authentication endpoints
+  - name: TOTP
+    description: Time-based One-Time Password operations
+  - name: WebAuthn
+    description: Web Authentication (security key) operations
+  - name: Identity Provider
+    description: External identity provider operations
+  - name: User Management
+    description: User-related operations
+  - name: Health
+    description: System health and monitoring
+
+paths:
+  #
+  # Authentication Routes
+  #
+  /auth:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate a user
+      description: Authenticate a user with username/password and optional TOTP
+      operationId: authenticate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  description: User's username or email
+                password:
+                  type: string
+                  format: password
+                  description: User's password
+                totp_code:
+                  type: string
+                  description: User's TOTP code (if required)
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  accessToken:
+                    type: string
+                    description: JWT access token
+                  refreshToken:
+                    type: string
+                    description: JWT refresh token
+                  expiresIn:
+                    type: integer
+                    description: Token expiration time in seconds
+        '400':
+          description: Bad request - missing or invalid parameters
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Invalid username or password"
+                  totp_required:
+                    type: boolean
+                    description: Whether TOTP verification is required
+                    example: true
+
+  /check-auth-status:
+    get:
+      tags:
+        - Authentication
+      summary: Check authentication status
+      description: Check the status of an ongoing authentication
+      operationId: checkAuthStatus
+      parameters:
+        - name: code
+          in: query
+          description: Authentication session code
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authentication status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  status:
+                    type: string
+                    enum: [pending, completed, failed, expired]
+                  authenticated:
+                    type: boolean
+                  username:
+                    type: string
+                  message:
+                    type: string
+        '404':
+          description: Authentication session not found
+
+  /localuser:
+    post:
+      tags:
+        - Authentication
+      summary: Check if user exists locally
+      description: Check if a user exists locally in Keycloak
+      operationId: checkLocalUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+              properties:
+                username:
+                  type: string
+                  description: Username to check
+      responses:
+        '200':
+          description: Local user check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  exists:
+                    type: boolean
+                    description: Whether the user exists locally
+                  user:
+                    type: object
+                    description: User details if found
+                    properties:
+                      id:
+                        type: string
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      enabled:
+                        type: boolean
+
+  /check-user-type:
+    get:
+      tags:
+        - Authentication
+      summary: Check user account type
+      description: Check what type of user account (local, IdP, etc.)
+      operationId: checkUserType
+      parameters:
+        - name: username
+          in: query
+          description: Username to check
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User type information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  userType:
+                    type: string
+                    enum: [local, federated, external]
+                  idpAlias:
+                    type: string
+                    description: Identity provider alias if applicable
+                  idpDetails:
+                    type: object
+                    description: Identity provider details if applicable
+
+  #
+  # TOTP Routes
+  #
+  /check-totp:
+    get:
+      tags:
+        - TOTP
+      summary: Check TOTP status
+      description: Check if TOTP is required for a user and provide setup info if needed
+      operationId: checkTotpStatus
+      parameters:
+        - name: username
+          in: query
+          description: Username to check
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: TOTP status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  totp_required:
+                    type: boolean
+                    description: Whether TOTP is required for the user
+                  totp_setup_needed:
+                    type: boolean
+                    description: Whether TOTP setup is needed
+                  totp_setup:
+                    type: object
+                    description: TOTP setup information (if setup is needed)
+                    properties:
+                      secret:
+                        type: string
+                        description: TOTP secret key
+                      qrCode:
+                        type: string
+                        description: QR code image as base64 string
+                      userId:
+                        type: string
+        '400':
+          description: Bad request - missing username
+        '404':
+          description: User not found
+
+  /verify-totp:
+    post:
+      tags:
+        - TOTP
+      summary: Verify TOTP code
+      description: Verify a TOTP code for a user
+      operationId: verifyTotp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - totp_code
+              properties:
+                username:
+                  type: string
+                  description: Username of the user
+                totp_code:
+                  type: string
+                  description: TOTP code to verify
+                deviceName:
+                  type: string
+                  default: "default"
+                  description: Device name
+      responses:
+        '200':
+          description: TOTP verification successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "TOTP verification successful"
+        '400':
+          description: Bad request - missing parameters
+        '401':
+          description: Invalid TOTP code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Invalid TOTP code"
+        '404':
+          description: User not found
+
+  /totp/complete-setup:
+    post:
+      tags:
+        - TOTP
+      summary: Complete TOTP setup
+      description: Complete TOTP setup for a user
+      operationId: completeTotpSetup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - secret
+                - code
+              properties:
+                username:
+                  type: string
+                  description: Username of the user
+                secret:
+                  type: string
+                  description: TOTP secret key
+                code:
+                  type: string
+                  description: Initial TOTP code for verification
+                password:
+                  type: string
+                  format: password
+                  description: User's password (optional, for additional verification)
+                deviceName:
+                  type: string
+                  default: "default"
+                  description: Device name
+                qrCode:
+                  type: string
+                  description: QR code image to return in the response
+      responses:
+        '200':
+          description: TOTP setup completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "TOTP setup completed successfully"
+                  totp_setup_complete:
+                    type: boolean
+                    example: true
+                  totp_setup:
+                    type: object
+                    properties:
+                      secret:
+                        type: string
+                      qrCode:
+                        type: string
+        '400':
+          description: Bad request - missing parameters or invalid code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                  totp_setup_failed:
+                    type: boolean
+                    example: true
+        '404':
+          description: User not found
+
+  #
+  # WebAuthn Routes
+  #
+  /check-webauthn:
+    get:
+      tags:
+        - WebAuthn
+      summary: Check WebAuthn status
+      description: Check if WebAuthn is enabled for a user
+      operationId: checkWebAuthnStatus
+      parameters:
+        - name: username
+          in: query
+          description: Username to check
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: WebAuthn status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  webauthn_enabled:
+                    type: boolean
+                    description: Whether WebAuthn is enabled for the user
+                  webauthn_required:
+                    type: boolean
+                    description: Whether WebAuthn authentication is required
+        '400':
+          description: Bad request - missing username
+        '404':
+          description: User not found
+
+  /webauthn/authenticate/init:
+    post:
+      tags:
+        - WebAuthn
+      summary: Initiate WebAuthn authentication
+      description: Initiate WebAuthn authentication
+      operationId: initiateWebAuthnAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+              properties:
+                username:
+                  type: string
+                  description: Username of the user
+      responses:
+        '200':
+          description: WebAuthn authentication initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  auth_code:
+                    type: string
+                    description: Authentication session code
+                  auth_url:
+                    type: string
+                    description: URL for WebAuthn authentication page
+                  message:
+                    type: string
+                    example: "WebAuthn authentication initiated"
+        '400':
+          description: Bad request - missing username
+        '404':
+          description: User not found
+
+  /webauthn-auth/{code}:
+    get:
+      tags:
+        - WebAuthn
+      summary: WebAuthn authentication page
+      description: Serve WebAuthn authentication page
+      operationId: serveWebAuthnAuthPage
+      parameters:
+        - name: code
+          in: path
+          description: Authentication session code
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: WebAuthn authentication page
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: Authentication session not found or expired
+
+  /check-webauthn-status:
+    get:
+      tags:
+        - WebAuthn
+      summary: Check WebAuthn authentication status
+      description: Check WebAuthn authentication status
+      operationId: checkWebAuthnAuthStatus
+      parameters:
+        - name: code
+          in: query
+          description: Authentication session code
+          required: true
+          schema:
+            type: string
+        - name: username
+          in: query
+          description: Username to validate against (optional)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: WebAuthn authentication status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  status:
+                    type: string
+                    enum: [pending, authenticated, failed, expired]
+                  authenticated:
+                    type: boolean
+                  username:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          description: Bad request - missing code
+
+  /webauthn/verify:
+    post:
+      tags:
+        - WebAuthn
+      summary: Verify WebAuthn authentication
+      description: Verify WebAuthn authentication
+      operationId: verifyWebAuthnAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - auth_code
+                - credential
+              properties:
+                auth_code:
+                  type: string
+                  description: Authentication session code
+                credential:
+                  type: object
+                  description: WebAuthn credential
+                  required:
+                    - id
+                    - rawId
+                    - type
+                    - response
+                  properties:
+                    id:
+                      type: string
+                    rawId:
+                      type: string
+                    type:
+                      type: string
+                    response:
+                      type: object
+                      required:
+                        - clientDataJSON
+                        - authenticatorData
+                        - signature
+                      properties:
+                        clientDataJSON:
+                          type: string
+                        authenticatorData:
+                          type: string
+                        signature:
+                          type: string
+                        userHandle:
+                          type: string
+      responses:
+        '200':
+          description: WebAuthn authentication verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Bad request - missing parameters or invalid credential format
+        '404':
+          description: Authentication session not found or expired
+        '500':
+          description: Server error during authentication verification
+
+  /webauthn/register/init:
+    post:
+      tags:
+        - WebAuthn
+      summary: Initiate WebAuthn registration
+      description: Initiate WebAuthn registration
+      operationId: initiateWebAuthnRegistration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+              properties:
+                username:
+                  type: string
+                  description: Username of the user
+      responses:
+        '200':
+          description: WebAuthn registration initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  registration_code:
+                    type: string
+                    description: Registration session code
+                  registration_url:
+                    type: string
+                    description: URL for WebAuthn registration page
+                  message:
+                    type: string
+                    example: "WebAuthn registration initiated"
+        '400':
+          description: Bad request - missing username
+        '404':
+          description: User not found
+        '500':
+          description: Server error or configuration error
+
+  /webauthn-register/{code}:
+    get:
+      tags:
+        - WebAuthn
+      summary: WebAuthn registration page
+      description: Serve WebAuthn registration page
+      operationId: serveWebAuthnRegisterPage
+      parameters:
+        - name: code
+          in: path
+          description: Registration session code
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: WebAuthn registration page
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: Registration session not found or expired
+
+  /webauthn/register:
+    post:
+      tags:
+        - WebAuthn
+      summary: Complete WebAuthn registration
+      description: Complete WebAuthn registration
+      operationId: completeWebAuthnRegistration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - registration_code
+                - credential
+              properties:
+                registration_code:
+                  type: string
+                  description: Registration session code
+                credential:
+                  type: object
+                  description: WebAuthn credential
+                  required:
+                    - id
+                    - rawId
+                    - type
+                    - response
+                  properties:
+                    id:
+                      type: string
+                    rawId:
+                      type: string
+                    type:
+                      type: string
+                    response:
+                      type: object
+                      required:
+                        - attestationObject
+                        - clientDataJSON
+                      properties:
+                        attestationObject:
+                          type: string
+                        clientDataJSON:
+                          type: string
+      responses:
+        '200':
+          description: WebAuthn registration result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Bad request - missing parameters or invalid credential format
+        '404':
+          description: Registration session not found or expired
+        '500':
+          description: Server error during registration
+
+  /check-webauthn-registration:
+    get:
+      tags:
+        - WebAuthn
+      summary: Check WebAuthn registration status
+      description: Check WebAuthn registration status
+      operationId: checkWebAuthnRegistrationStatus
+      parameters:
+        - name: code
+          in: query
+          description: Registration session code
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: WebAuthn registration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [pending, registered, failed, expired]
+                  registered:
+                    type: boolean
+                  username:
+                    type: string
+        '400':
+          description: Bad request - missing code
+
+  /.well-known/webauthn:
+    get:
+      tags:
+        - WebAuthn
+      summary: WebAuthn domain verification
+      description: WebAuthn domain verification resource
+      operationId: serveWebAuthnVerification
+      responses:
+        '200':
+          description: WebAuthn verification data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: integer
+                    example: 1
+                  directory:
+                    type: string
+                    example: "https://example.com/webauthn"
+
+  #
+  # Identity Provider Routes
+  #
+  /initiate-idp-auth:
+    post:
+      tags:
+        - Identity Provider
+      summary: Initiate IdP authentication
+      description: Start an IdP authentication flow
+      operationId: initiateIdpAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+              properties:
+                username:
+                  type: string
+                  description: Username of the user
+                idp_alias:
+                  type: string
+                  description: Identity provider alias to use (optional)
+                is_potential_first_login:
+                  type: boolean
+                  description: Whether this may be the user's first login
+                create_if_missing:
+                  type: boolean
+                  description: Whether to create the user if not found
+      responses:
+        '200':
+          description: IdP authentication initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  sso_code:
+                    type: string
+                    description: SSO session code
+                  sso_url:
+                    type: string
+                    description: URL for browser-based IdP authentication
+                  idp_alias:
+                    type: string
+                    description: Identity provider alias being used
+                  message:
+                    type: string
+                    example: "IdP authentication initiated"
+        '400':
+          description: Bad request - missing username
+
+  /idp-auth/{code}:
+    get:
+      tags:
+        - Identity Provider
+      summary: IdP authentication page
+      description: Serve browser-based IdP authentication page
+      operationId: serveIdpAuthPage
+      parameters:
+        - name: code
+          in: path
+          description: SSO session code
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: IdP authentication page
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: SSO session not found or expired
+
+  /idp-auth-callback:
+    get:
+      tags:
+        - Identity Provider
+      summary: IdP authentication callback
+      description: Handle IdP authentication callback
+      operationId: handleIdpAuthCallback
+      parameters:
+        - name: code
+          in: query
+          description: Authorization code from IdP
+          schema:
+            type: string
+        - name: state
+          in: query
+          description: State parameter from authorization request
+          schema:
+            type: string
+        - name: error
+          in: query
+          description: Error code if authentication failed
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to appropriate page
+
+  /direct-auth-success/{code}:
+    get:
+      tags:
+        - Identity Provider
+      summary: Direct authentication success
+      description: Handle direct authentication success
+      operationId: handleDirectAuthSuccess
+      parameters:
+        - name: code
+          in: path
+          description: SSO session code
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authentication success page
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: SSO session not found or expired
+        '500':
+          description: Server error
+
+  /configured-idps:
+    get:
+      tags:
+        - Identity Provider
+      summary: Get configured IdPs
+      description: Get a list of configured Identity Providers
+      operationId: getConfiguredIdps
+      responses:
+        '200':
+          description: Configured Identity Providers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  idps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        alias:
+                          type: string
+                          example: "google"
+                        displayName:
+                          type: string
+                          example: "Google"
+                        providerId:
+                          type: string
+                          example: "oidc"
+                        enabled:
+                          type: boolean
+                          example: true
+                        config:
+                          type: object
+                          properties:
+                            authorizationUrl:
+                              type: string
+                            tokenUrl:
+                              type: string
+                            userInfoUrl:
+                              type: string
+                            clientId:
+                              type: string
+
+  #
+  # User Management Routes
+  #
+  /useruid:
+    get:
+      tags:
+        - User Management
+      summary: Get username by UID
+      description: Get username by UID
+      operationId: getUsernameByUid
+      parameters:
+        - name: uid
+          in: query
+          description: UID to look up
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Username found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  username:
+                    type: string
+        '404':
+          description: Username not found for UID
+    post:
+      tags:
+        - User Management
+      summary: Store UID mapping
+      description: Store UID to username mapping
+      operationId: updateUserUidMapping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - uid
+                - username
+              properties:
+                uid:
+                  type: string
+                  description: UID to map
+                username:
+                  type: string
+                  description: Username to associate with the UID
+      responses:
+        '201':
+          description: UID mapping updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Username cache updated"
+                  uid:
+                    type: string
+                  username:
+                    type: string
+        '400':
+          description: Bad request - missing parameters
+
+  /find-user-by-email:
+    get:
+      tags:
+        - User Management
+      summary: Find user by email
+      description: Find user by email address
+      operationId: findUserByEmail
+      parameters:
+        - name: email
+          in: query
+          description: Email address to look up
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '200':
+          description: User lookup result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  found:
+                    type: boolean
+                  user:
+                    type: object
+                    description: User details if found
+                    properties:
+                      id:
+                        type: string
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      firstName:
+                        type: string
+                      lastName:
+                        type: string
+                      enabled:
+                        type: boolean
+                      emailVerified:
+                        type: boolean
+                      idpAlias:
+                        type: string
+                      idpDetails:
+                        type: object
+                  suggestedIdp:
+                    type: object
+                    description: Suggested identity provider based on email domain
+        '400':
+          description: Bad request - missing email
+
+  /user-roles:
+    get:
+      tags:
+        - User Management
+      summary: Get user roles
+      description: Get roles for a user
+      operationId: getUserRoles
+      parameters:
+        - name: username
+          in: query
+          description: Username to get roles for
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User roles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  username:
+                    type: string
+                  roles:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Bad request - missing username
+        '404':
+          description: User not found
+
+  /user-role-state:
+    get:
+      tags:
+        - User Management
+      summary: Get role state
+      description: Get role state for a user
+      operationId: getUserRoleState
+      parameters:
+        - name: username
+          in: query
+          description: Username to get role state for
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User role state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  username:
+                    type: string
+                  previous_role_type:
+                    type: integer
+                  last_updated:
+                    type: string
+                    format: date-time
+                    nullable: true
+        '400':
+          description: Bad request - missing username
+    post:
+      tags:
+        - User Management
+      summary: Update role state
+      description: Update role state for a user
+      operationId: updateUserRoleState
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - role_type
+              properties:
+                username:
+                  type: string
+                  description: Username to update role state for
+                role_type:
+                  type: integer
+                  description: Role type to assign
+      responses:
+        '200':
+          description: Role state updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  username:
+                    type: string
+                  role_type:
+                    type: integer
+                  last_updated:
+                    type: string
+                    format: date-time
+        '400':
+          description: Bad request - missing parameters
+
+  #
+  # Health Routes
+  #
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Check system health
+      description: Check health of the application and dependencies
+      operationId: checkHealth
+      responses:
+        '200':
+          description: System health information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  version:
+                    type: string
+                  uptime:
+                    type: number
+                  components:
+                    type: object
+                    properties:
+                      database:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                      keycloak:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                      cache:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+
+  /health/database:
+    get:
+      tags:
+        - Health
+      summary: Check database health
+      description: Check health of the database connection
+      operationId: checkDatabaseHealth
+      responses:
+        '200':
+          description: Database health information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, unhealthy]
+                  responseTime:
+                    type: number
+                  pool:
+                    type: object
+                    properties:
+                      totalConnections:
+                        type: integer
+                      idleConnections:
+                        type: integer
+                      waitingClients:
+                        type: integer
+                      maxConnections:
+                        type: integer
+                  cache:
+                    type: object
+                    properties:
+                      uidCacheSize:
+                        type: integer
+                      lockCount:
+                        type: integer
+                      instanceId:
+                        type: string
+
+  /health/keycloak:
+    get:
+      tags:
+        - Health
+      summary: Check Keycloak health
+      description: Check health of the Keycloak connection
+      operationId: checkKeycloakHealth
+      responses:
+        '200':
+          description: Keycloak health information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, unhealthy]
+                  responseTime:
+                    type: number
+                  server:
+                    type: string
+                  realm:
+                    type: string
+
+  /health/cache:
+    get:
+      tags:
+        - Health
+      summary: Check cache health
+      description: Check health of the cache service
+      operationId: checkCacheHealth
+      responses:
+        '200':
+          description: Cache health information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, unhealthy]
+                  distribution:
+                    type: string
+                  localCache:
+                    type: object
+                    properties:
+                      ssoSessions:
+                        type: object
+                        properties:
+                          size:
+                            type: integer
+                          maxSize:
+                            type: integer
+                          ttl:
+                            type: integer
+                      usernameMappings:
+                        type: object
+                        properties:
+                          size:
+                            type: integer
+                          maxSize:
+                            type: integer
+                          ttl:
+                            type: integer
+                  instanceId:
+                    type: string
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Get system metrics
+      description: Get application metrics in Prometheus format
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Application metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from the authentication endpoint
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        enabled:
+          type: boolean
+        emailVerified:
+          type: boolean
+        totp:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+    TotpSetup:
+      type: object
+      properties:
+        secret:
+          type: string
+        qrCode:
+          type: string
+        userId:
+          type: string
+    WebAuthnCredential:
+      type: object
+      properties:
+        id:
+          type: string
+        rawId:
+          type: string
+        type:
+          type: string
+        response:
+          type: object
+          properties:
+            clientDataJSON:
+              type: string
+            attestationObject:
+              type: string
+            authenticatorData:
+              type: string
+            signature:
+              type: string
+    IdpProvider:
+      type: object
+      properties:
+        alias:
+          type: string
+        displayName:
+          type: string
+        providerId:
+          type: string
+        enabled:
+          type: boolean
+        config:
+          type: object
+          properties:
+            authorizationUrl:
+              type: string
+            tokenUrl:
+              type: string
+            userInfoUrl:
+              type: string
+            clientId:
+              type: string
